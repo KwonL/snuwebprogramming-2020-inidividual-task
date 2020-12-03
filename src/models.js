@@ -1,12 +1,25 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const User = mongoose.model("User", {
+const User = mongoose.model('User', {
   name: String,
-  email: String,
+  email: { type: String, unique: true },
   password: String,
-  key: String
+});
+
+const Coin = mongoose.model('Coin', {
+  code: String,
+  name: String,
+  active: Boolean,
+});
+
+const Asset = mongoose.model('Asset', {
+  user: { ref: 'User', type: mongoose.Schema.ObjectId },
+  coin: { ref: 'Coin', type: mongoose.Schema.ObjectId },
+  quantity: Number,
 });
 
 module.exports = {
-  User
+  User,
+  Coin,
+  Asset,
 };
