@@ -146,12 +146,13 @@ app.post(
         .status(400)
         .send({ error: { coin_name: 'Asset for that coin not found' } });
     }
-    usdBalance.quantity -= quantity * price;
+    const buyPrice = parseFloat((quantity * price).toFixed(4));
+    usdBalance.quantity -= buyPrice;
     await usdBalance.save();
     coinBalance.quantity += quantity;
     await coinBalance.save();
 
-    return res.send({ price: price * quantity, quantity });
+    return res.send({ price: buyPrice, quantity });
   }
 );
 
@@ -190,12 +191,13 @@ app.post(
       user: req.user,
       coin: await Coin.findOne({ code: 'usd' }),
     });
-    usdBalance.quantity += quantity * price;
+    const sellPrice = parseFloat((quantity * price).toFixed(4));
+    usdBalance.quantity += sellPrice;
     await usdBalance.save();
     coinBalance.quantity -= quantity;
     await coinBalance.save();
 
-    return res.send();
+    return res.send({ price: sellPrice, quantity: quantity });
   }
 );
 
