@@ -90,7 +90,7 @@ app.get('/assets', auth, async (req, res) => {
 });
 
 app.get('/coins/:coin_name', async (req, res) => {
-  const code = req.params.coin_name;
+  const code = req.params['coin_name'];
   const coin = await Coin.findOne({ code });
   if (!coin) {
     return res.status(404).send({ error: 'coin not found' });
@@ -102,6 +102,102 @@ app.get('/coins/:coin_name', async (req, res) => {
 
   return res.send({ price: prices.data[coin.name].usd });
 });
+
+const quantityValidator = body('quantity').customSanitizer((value) => {
+  const validated = parseFloat(value);
+  if (validated.toString().length > 6) {
+    throw new Error('Quantity length is too big');
+  }
+  return validated;
+});
+
+app.post(
+  '/coins/:coin_name/buy',
+  [quantityValidator],
+  auth,
+  async (req, res) => {
+    const code = req.params['coin_name'];
+    const coin = await Coin.findOne({ code });
+    if (!coin) {
+      return res.status(404).send({ error: 'coin not found' });
+    }
+    const price = (
+      await CoinGeckoClient.simple.price({
+        ids: coin.name,
+        vs_currencies: 'usd',
+      })
+    ).data[coin.name]['usd'];
+    const quantity = req.body.quantity;
+    const usdBalance = await Asset.findOne({
+      user: req.user,
+      coin: await Coin.findOne({ code: 'usd' }),
+    });
+    if (quantity * price > usdBalance.quantity) {
+      return res
+        .status(400)
+        .send({ error: { quantity: 'not enough balance to buy' } });
+    }
+    const coinBalance = await Asset.findOne({
+      user: req.user,
+      coin: coin,
+    });
+    if (!coinBalance) {
+      return res
+        .status(400)
+        .send({ error: { coin_name: 'Asset for that coin not found' } });
+    }
+    usdBalance.quantity -= quantity * price;
+    await usdBalance.save();
+    coinBalance.quantity += quantity;
+    await coinBalance.save();
+
+    return res.send({ price: price * quantity, quantity });
+  }
+);
+
+app.post(
+  '/coins/:coin_name/sell',
+  [quantityValidator],
+  auth,
+  async (req, res) => {
+    const code = req.params['coin_name'];
+    const coin = await Coin.findOne({ code });
+    if (!coin) {
+      return res.status(404).send({ error: 'coin not found' });
+    }
+    const price = (
+      await CoinGeckoClient.simple.price({
+        ids: coin.name,
+        vs_currencies: 'usd',
+      })
+    ).data[coin.name]['usd'];
+    const quantity = req.body.quantity;
+    const coinBalance = await Asset.findOne({
+      user: req.user,
+      coin: coin,
+    });
+    if (!coinBalance) {
+      return res
+        .status(400)
+        .send({ error: { coin_name: 'Asset for that coin not found' } });
+    }
+    if (coinBalance.quantity < quantity) {
+      return res
+        .status(400)
+        .send({ error: { quantity: 'Not enough quantity' } });
+    }
+    const usdBalance = await Asset.findOne({
+      user: req.user,
+      coin: await Coin.findOne({ code: 'usd' }),
+    });
+    usdBalance.quantity += quantity * price;
+    await usdBalance.save();
+    coinBalance.quantity -= quantity;
+    await coinBalance.save();
+
+    return res.send();
+  }
+);
 
 app.listen(3000, () => {
   console.log('Starting server on port 3000');
