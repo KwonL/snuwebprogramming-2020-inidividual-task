@@ -263,7 +263,7 @@ app.post('/coins/:coin_name/sell-all', auth, async (req, res) => {
   }
   const sellQuantity = coinBalance.quantity * price;
   const prevQuantity = coinBalance.quantity;
-  usdBalance.quantity = sellQuantity;
+  usdBalance.quantity += sellQuantity;
   await usdBalance.save();
   coinBalance.quantity = 0;
   await coinBalance.save();
