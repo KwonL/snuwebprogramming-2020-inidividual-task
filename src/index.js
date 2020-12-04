@@ -201,6 +201,76 @@ app.post(
   }
 );
 
+app.post('/coins/:coin_name/buy-all', auth, async (req, res) => {
+  const code = req.params['coin_name'];
+  const coin = await Coin.findOne({ code });
+  if (!coin) {
+    return res.status(404).send({ error: 'coin not found' });
+  }
+  const price = (
+    await CoinGeckoClient.simple.price({
+      ids: coin.name,
+      vs_currencies: 'usd',
+    })
+  ).data[coin.name]['usd'];
+  const usdBalance = await Asset.findOne({
+    user: req.user,
+    coin: await Coin.findOne({ code: 'usd' }),
+  });
+  const coinBalance = await Asset.findOne({
+    user: req.user,
+    coin: coin,
+  });
+  if (!coinBalance) {
+    return res
+      .status(400)
+      .send({ error: { coin_name: 'Asset for that coin not found' } });
+  }
+  const prevBalance = usdBalance.quantity;
+  const buyQuantity = usdBalance.quantity / price;
+  usdBalance.quantity = 0;
+  await usdBalance.save();
+  coinBalance.quantity += buyQuantity;
+  await coinBalance.save();
+
+  return res.send({ price: prevBalance, quantity: buyQuantity });
+});
+
+app.post('/coins/:coin_name/sell-all', auth, async (req, res) => {
+  const code = req.params['coin_name'];
+  const coin = await Coin.findOne({ code });
+  if (!coin) {
+    return res.status(404).send({ error: 'coin not found' });
+  }
+  const price = (
+    await CoinGeckoClient.simple.price({
+      ids: coin.name,
+      vs_currencies: 'usd',
+    })
+  ).data[coin.name]['usd'];
+  const usdBalance = await Asset.findOne({
+    user: req.user,
+    coin: await Coin.findOne({ code: 'usd' }),
+  });
+  const coinBalance = await Asset.findOne({
+    user: req.user,
+    coin: coin,
+  });
+  if (!coinBalance) {
+    return res
+      .status(400)
+      .send({ error: { coin_name: 'Asset for that coin not found' } });
+  }
+  const sellQuantity = coinBalance.quantity * price;
+  const prevQuantity = coinBalance.quantity;
+  usdBalance.quantity = sellQuantity;
+  await usdBalance.save();
+  coinBalance.quantity = 0;
+  await coinBalance.save();
+
+  return res.send({ price: sellQuantity, quantity: prevQuantity });
+});
+
 app.listen(3000, () => {
   console.log('Starting server on port 3000');
 });
