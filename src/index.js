@@ -1,10 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { auth, JWT_SECRET } = require('./utils');
+const { auth } = require('./utils');
 const { encryptPassword } = require('./utils');
 const { body, validationResult } = require('express-validator');
-const jwt = require('jsonwebtoken');
-const { User, Coin, Asset } = require('./models');
+const crypto = require('crypto');
+const { User, Coin, Asset, Key } = require('./models');
 const CoinGecko = require('coingecko-api');
 
 // Configuration
@@ -70,12 +70,9 @@ app.post('/login', async (req, res) => {
 
   if (!user) return res.sendStatus(403);
 
-  const key = jwt.sign(
-    {
-      email: user.email,
-    },
-    JWT_SECRET
-  );
+  const key = crypto.randomBytes(24).toString('hex');
+  const keyObj = new Key({ user, key });
+  await keyObj.save();
   res.send({ key });
 });
 

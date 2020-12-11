@@ -18,8 +18,14 @@ const Asset = mongoose.model('Asset', {
   quantity: Number,
 });
 
+const Key = mongoose.model('Key', {
+  user: { ref: 'User', type: mongoose.Schema.ObjectId },
+  key: String,
+});
+
 module.exports = {
   User,
   Coin,
   Asset,
+  Key,
 };
